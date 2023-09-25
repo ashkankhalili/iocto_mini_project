@@ -36,12 +36,22 @@ if (isset($_GET['id'])) {
 // Handle form submission to update user details
 if (isset($_POST['update_user'])) {
     $user_id = $_POST['user_id'];
-    $newUsername = $_POST['new_username'];
     $newEmail = $_POST['new_email'];
     $newPassword = $_POST['new_password'];
 
-    // Check if the user is an admin to allow changing the username
+    // Construct the initial update query
+    $updateQuery = "UPDATE users SET email='$newEmail'";
+
+    // Check if a new password is provided; otherwise, keep the old password
+    if (!empty($newPassword)) {
+        $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $updateQuery .= ", password='$passwordHash'";
+    }
+
+    // Only update the username if the user is an admin
     if ($_SESSION['user_role'] === 'admin') {
+        $newUsername = $_POST['new_username'];
+
         // Check if the new username is already in use by another user
         $checkUsernameQuery = "SELECT * FROM users WHERE username='$newUsername' AND id != $user_id";
         $usernameResult = mysqli_query($conn, $checkUsernameQuery);
@@ -49,19 +59,12 @@ if (isset($_POST['update_user'])) {
             // Username is already in use
             $message = "Username '$newUsername' is already in use by another user and cannot be updated.";
         } else {
-            $updateQuery = "UPDATE users SET username='$newUsername', email='$newEmail'";
+            $updateQuery .= ", username='$newUsername'";
         }
-    } else {
-        // If the user is not an admin, only update the email
-        $updateQuery = "UPDATE users SET email='$newEmail'";
     }
 
-    // Check if a new password is provided; otherwise, keep the old password
-    if (!empty($newPassword)) {
-        $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $updateQuery .= ", password='$passwordHash'";
-    }
-    
+    // Add a WHERE clause to update only the specific user
+    $updateQuery .= " WHERE id = $user_id";
 
     if (!isset($message) && mysqli_query($conn, $updateQuery)) {
         // User details updated successfully
